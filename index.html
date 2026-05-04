@@ -316,7 +316,7 @@
             try {
                 const deviceId = document.getElementById("camera-select").value;
                 evidenceStream = await navigator.mediaDevice.getUserMedia({
-                    video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: "enviroment" }
+                    video: { facingMode: "enviroment" }
                 };
                 document.getElementById("evidence-video").srcObject = constraints;
             } catch (err) { alert("No se pudo abrir la cámara de evidencia."); }
