@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terra Nova | Smart Scanner MVP</title>
+    <style>
+        :root {
+            --primary: #2D5A27;
+            --white: #ffffff;
+            --bg: #e8f0e8;
+            --accent: #FFD700;
+            --secondary: #4CAF50;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .card {
+            background: var(--white);
+            padding: 2rem;
+            border-radius: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        h1 { color: var(--primary); margin: 0; font-size: 1.8rem; }
+        .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+        #webcam-container, #evidence-webcam-container {
+            margin: 15px auto;
+            width: 280px;
+            height: 280px;
+            border: 5px solid var(--primary);
+            border-radius: 20px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .btn-main {
+            width: 100%;
+            padding: 14px;
+            border-radius: 15px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            background: var(--accent);
+            color: #000;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+
+        .btn-main:active { transform: scale(0.98); }
+
+        .btn-reward {
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+        }
+
+        /* MODALES */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            width: 85%;
+            max-width: 380px;
+            border-radius: 25px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+        .modal-header { padding: 20px; color: white; font-size: 1.4rem; font-weight: bold; text-align: center; }
+        .modal-body { padding: 25px; text-align: center; }
+        
+        .res-title { font-size: 1.6rem; color: #222; margin-bottom: 5px; }
+        .res-caneca { display: inline-block; padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 0.85rem; margin-bottom: 20px; }
+        
+        .bg-blanca { background: #f0f0f0; color: #333; border: 1px solid #ccc; }
+        .bg-verde { background: #2D5A27; color: white; }
+        .bg-negra { background: #333; color: white; }
+
+        .btn-feedback {
+            background: none;
+            color: #888;
+            text-decoration: underline;
+            font-size: 0.8rem;
+            margin-top: 20px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .qr-placeholder {
+            width: 150px;
+            height: 150px;
+            margin: 15px auto;
+            background: #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed #bbb;
+            border-radius: 10px;
+        }
+
+        #camera-select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="main-view" class="card">
+        <h1>🌿 Terra Nova</h1>
+        <p class="subtitle">Escáner de Residuos Inteligente</p>
+        
+        
+        <div id="webcam-container"></div>
+        <button id="btn-action" class="btn-main" onclick="handleAction()">ENCENDER CÁMARA</button>
+        <button class="btn-main btn-reward" onclick="openEvidenceView()">🎁 CANJEAR RECOMPENSA</button>
+    </div>
+
+    <div id="evidence-view" class="card" style="display: none;">
+        <h1>📸 Evidencia</h1>
+        <p class="subtitle">Registra tu entrega para obtener tu beneficio</p>
+        <div id="evidence-webcam-container">
+            <video id="evidence-video" autoplay playsinline></video>
+        </div>
+        <button class="btn-main btn-reward" onclick="captureEvidence()">TOMAR FOTO EVIDENCIA</button>
+        <button class="btn-main" style="background:#eee;" onclick="closeEvidenceView()">VOLVER</button>
+    </div>
+
+    <div id="resultModal" class="modal">
+        <div class="modal-content">
+            <div id="modal-header" class="modal-header">¡Análisis Listo!</div>
+            <div class="modal-body">
+                <div id="res-clase" class="res-title">---</div>
+                <div id="res-caneca-tag" class="res-caneca">---</div>
+                <p id="res-instrucciones" style="color:#555; line-height:1.4; min-height: 60px;"></p>
+                <button class="btn-main" style="background:#eee;" onclick="closeModal()">NUEVA CAPTURA</button>
+                <br>
+                <button class="btn-feedback" onclick="openFeedback()">¿No es el resultado correcto?</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="rewardModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header" style="background:var(--primary);">¡Cupón Generado!</div>
+            <div class="modal-body">
+                <h3 style="margin: 0; color: #222;">¡Gracias por reciclar!</h3>
+                <div class="qr-placeholder">
+                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=TerraNovaRewards" alt="QR" width="140" height="140">
+                </div>
+                <p style="font-weight: bold; color: #d35400; font-size:1.1rem;">¡Tu Marca podría estar aquí!</p>
+                <button class="btn-main" style="background:#eee;" onclick="closeRewardModal()">FINALIZAR</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script>
+        const URL_MODELO = "https://teachablemachine.withgoogle.com/models/0fLajfPFQ/"; 
+
+        const RESIDUOS_DB = {
+            "plastico": { n: "Plástico Rígido", c: "BLANCA", css: "bg-blanca", h: "#3498db", t: "Envases de yogurt, productos de aseo o botellas. Vacía el contenido y enjuaga." },
+            "papel_carton": { n: "Papel y Cartón", c: "BLANCA", css: "bg-blanca", h: "#3498db", t: "Hojas de cuaderno, cajas o folletos. Debe estar seco y sin grasa." },
+            "vidrio": { n: "Vidrio", c: "BLANCA", css: "bg-blanca", h: "#3498db", t: "Botellas y frascos. No incluyas espejos, cerámica o vidrio templado." },
+            "metales": { n: "Metales", c: "BLANCA", css: "bg-blanca", h: "#3498db", t: "Latas de refresco o conservas. Asegúrate de que estén vacías y secas." },
+            "organico": { n: "Orgánico", c: "VERDE", css: "bg-verde", h: "#27ae60", t: "Restos de comida, cáscaras y desechos agrícolas. ¡Hagamos compost!" },
+            "paquetes": { n: "Paquetes / Envolturas", c: "NEGRA", css: "bg-negra", h: "#333", t: "Envolturas de snacks, papas fritas y dulces. Van a la caneca negra." },
+            "nada": { n: "Sin residuo", c: "N/A", css: "bg-negra", h: "#333", t: "No detecto un objeto claro. Intenta acercarlo más a la luz." }
+        };
+
+        let model, webcam, animationId, isCameraActive = false;
+        let evidenceStream = null;
+
+        async function setupCameras() {
+            const selector = document.getElementById('camera-select');
+
+            try {
+                // Pedir permiso primero (necesario para labels en móviles)
+                await navigator.mediaDevices.getUserMedia({ video: true });
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+                selector.innerHTML = videoDevices.map((d, i) => {
+                    let label = d.label || `Cámara ${i+1}`;
+            
+                    // Detectar trasera
+                    if (label.toLowerCase().includes("back") || label.toLowerCase().includes("rear")) {
+                        label += " (Trasera)";
+                    }
+
+                    return `<option value="${d.deviceId}">${label}</option>`;
+                }).join('');
+
+                // Intentar seleccionar automáticamente la trasera
+                const rearCamera = videoDevices.find(d =>
+                    d.label.toLowerCase().includes("back") ||
+                    d.label.toLowerCase().includes("rear")
+                );
+
+                if (rearCamera) {
+                    selector.value = rearCamera.deviceId;
+                }
+
+            } catch (err) {
+                console.error("Error accediendo a cámaras:", err);
+            }
+        }
+
+        async function handleAction() {
+            const btn = document.getElementById("btn-action");
+            if (!isCameraActive) {
+                btn.innerText = "CARGANDO IA...";
+                model = await tmImage.load(URL_MODELO + "model.json", URL_MODELO + "metadata.json");
+                
+                webcam = new tmImage.Webcam(280, 280, true);
+                
+
+                await webcam.setup({
+                    
+                    facingMode: "environment" // fallback para móviles
+                });
+                await webcam.play();
+                
+                const container = document.getElementById("webcam-container");
+                container.innerHTML = "";
+                container.appendChild(webcam.canvas);
+                window.requestAnimationFrame(loop);
+                isCameraActive = true;
+                btn.innerText = "TOMAR FOTO / ANALIZAR";
+            } else {
+                predict();
+            }
+        }
+
+        function loop() {
+            webcam.update();
+            animationId = window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const prediction = await model.predict(webcam.canvas);
+            let highestProb = 0;
+            let bestMatch = "nada";
+
+            prediction.forEach(p => {
+                if (p.probability > highestProb) {
+                    highestProb = p.probability;
+                    bestMatch = p.className;
+                }
+            });
+
+            console.log("Detectado:", bestMatch, "Prob:", highestProb.toFixed(2));
+            showResult(bestMatch, highestProb);
+        }
+
+        function showResult(clase, prob) {
+            let data = RESIDUOS_DB[clase] || RESIDUOS_DB["nada"];
+            if (prob < 0.40) data = RESIDUOS_DB["nada"];
+
+            document.getElementById("res-clase").innerText = data.n;
+            document.getElementById("res-caneca-tag").innerText = "CANECA: " + data.c;
+            document.getElementById("res-caneca-tag").className = "res-caneca " + data.css;
+            document.getElementById("res-instrucciones").innerHTML = data.t;
+            document.getElementById("modal-header").style.background = data.h;
+
+            document.getElementById("resultModal").style.display = "flex";
+            window.cancelAnimationFrame(animationId);
+        }
+
+        function closeModal() {
+            document.getElementById("resultModal").style.display = "none";
+            window.requestAnimationFrame(loop);
+        }
+
+        /* LÓGICA EVIDENCIA */
+        async function openEvidenceView() {
+            if (isCameraActive && animationId) window.cancelAnimationFrame(animationId);
+            document.getElementById("main-view").style.display = "none";
+            document.getElementById("evidence-view").style.display = "block";
+
+            try {
+                const deviceId = document.getElementById("camera-select").value;
+                const constraints = {
+                    video: deviceId 
+                        ? { deviceId: { exact: deviceId } } 
+                        : { facingMode: { exact: "environment" } }
+                };
+                document.getElementById("evidence-video").srcObject = constraints;
+            } catch (err) { alert("No se pudo abrir la cámara de evidencia."); }
+        }
+
+        function closeEvidenceView() {
+            if (evidenceStream) evidenceStream.getTracks().forEach(t => t.stop());
+            document.getElementById("evidence-view").style.display = "none";
+            document.getElementById("main-view").style.display = "block";
+            if (isCameraActive) window.requestAnimationFrame(loop);
+        }
+
+        function captureEvidence() { document.getElementById("rewardModal").style.display = "flex"; }
+        function closeRewardModal() { document.getElementById("rewardModal").style.display = "none"; closeEvidenceView(); }
+    </script>
+</body>
+</html>
